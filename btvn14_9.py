@@ -167,23 +167,17 @@ plt.axvline(
 
 
 # ==========================================
-# 8. GHI UNDERFITTING / OVERFITTING
+# 8. GHI CHÚ VÙNG OVERFITTING
 # ==========================================
 
 y_max = max(cv_errors)
 
-plt.text(
-    1.05,
-    y_max * 0.85,
-    "UNDERFITTING",
-    fontsize=13
-)
-
-plt.text(
-    3.2,
-    y_max * 0.85,
-    "OVERFITTING",
-    fontsize=13
+plt.annotate(
+    "Overfitting:\nTrain Error rất thấp\nnhưng Validation Error tăng",
+    xy=(4, cv_errors[3]),
+    xytext=(2.5, y_max * 0.75),
+    arrowprops=dict(arrowstyle="->"),
+    fontsize=12
 )
 
 
