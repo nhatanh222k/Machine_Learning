@@ -1,14 +1,28 @@
-import numpy #thu vien xu ly mang
-from sklearn.model_selection import cross_val_score #thu vien chia tap du lieu
-from sklearn.preprocessing import PolynomialFeatures #thu vien chuyen doi du lieu sang dang da thuc(hỗ trọ ví dụ overfitting)
-from sklearn.linear_model import LinearRegression #thu vien hoi quy tuyen tinh
-from sklearn.pipeline import make_pipeline #thu vien tao pipeline cho cac buoc xu ly du lieu
+import numpy
+import matplotlib
+matplotlib.use("Agg")
+
+import matplotlib.pyplot as plt
+
+from sklearn.preprocessing import PolynomialFeatures
+from sklearn.linear_model import LinearRegression
+from sklearn.pipeline import make_pipeline
+from sklearn.model_selection import KFold, cross_val_score
+from sklearn.metrics import mean_squared_error
+
+
+# ==========================================
+# 1. DỮ LIỆU X VÀ Y
+# ==========================================
+
 X = numpy.array([
-    [40, 50, 60, 70, 80, 90, 100, 110, 120, 130],#dien tich
-    [2,  2,  2,  3,  3,  3,   4,   4,   4,   5],#So phong
-    [10, 8,  9,  7, 6,  5,   7,   4,   3,   2] #cach trung tam
+    [40, 50, 60, 70, 80, 90, 100, 110, 120, 130],
+    [2,  2,  2,  3,  3,  3,   4,   4,   4,   5],
+    [10, 8,  9,  7, 6,  5,   7,   4,   3,   2]
 ])
-Y=numpy.array([[8],
+
+Y = numpy.array([
+    [8],
     [10],
     [11],
     [14],
@@ -17,29 +31,190 @@ Y=numpy.array([[8],
     [19],
     [22],
     [24],
-    [27]]) #gia nha
+    [27]
+])
+
+# Chuyển vị X
 X = X.T
-# LẦN 1: Dùng BẬC 3 (Mô hình quá phức tạp -> BỊ OVERFITTING)
-# Tạo mô hình hồi quy đa thức bậc 3
-# PolynomialFeatures(degree=3): chuyển X thành các đặc trưng đa thức bậc 3
-# LinearRegression(): dùng hồi quy tuyến tính để học từ các đặc trưng đó
-# make_pipeline(): kết hợp 2 bước trên thành một mô hình
-mo_hinh_bac_3 = make_pipeline(PolynomialFeatures(degree=3), LinearRegression())
-# Cho mô hình bậc 3 học từ dữ liệu X và giá nhà Y
-mo_hinh_bac_3.fit(X, Y)
-# Tính điểm của mô hình trên chính dữ liệu mà nó đã học
-print("Điểm học thuộc lòng (Bậc 3):", mo_hinh_bac_3.score(X, Y))
-diem_cv_bac_3 = cross_val_score(mo_hinh_bac_3, X, Y, cv=5)
-# Tính điểm CV trung bình của 5 lần đánh giá
-# Điểm CV thấp hoặc âm cho thấy mô hình dự đoán dữ liệu mới kém
-print("Điểm CV thực tế (Bậc 3):    ", diem_cv_bac_3.mean())
-# LẦN 2: Dùng BẬC 1 (Mô hình đơn giản -> SỬA OVERFITTING)
-# Tạo mô hình hồi quy đa thức bậc 1
-# degree=1: chỉ sử dụng các đặc trưng bậc 1
-# Mô hình đơn giản hơn so với bậc 3
-mo_hinh_bac_1 = make_pipeline(PolynomialFeatures(degree=1), LinearRegression())
-# Đánh giá mô hình bậc 1 bằng Cross Validation 5 lần
-# Không cần fit() trước vì cross_val_score() sẽ tự chia dữ liệu,
-# tự huấn luyện và tự kiểm tra mô hình trong từng lần
-diem_cv_bac_1 = cross_val_score(mo_hinh_bac_1, X, Y, cv=5)
-print("\nĐiểm CV thực tế (Bậc 1):    ", diem_cv_bac_1.mean())
+
+
+# ==========================================
+# 2. DANH SÁCH BẬC MÔ HÌNH
+# ==========================================
+
+degrees = range(1, 6)
+
+
+# ==========================================
+# 3. K-FOLD CROSS VALIDATION
+# ==========================================
+
+cv = KFold(
+    n_splits=5,
+    shuffle=True,
+    random_state=42
+)
+
+
+train_errors = []
+cv_errors = []
+
+
+# ==========================================
+# 4. THỬ TỪNG BẬC
+# ==========================================
+
+for degree in degrees:
+
+    mo_hinh = make_pipeline(
+        PolynomialFeatures(degree=degree),
+        LinearRegression()
+    )
+
+    # -------------------------
+    # TRAIN
+    # -------------------------
+
+    mo_hinh.fit(X, Y)
+
+    Y_train_du_doan = mo_hinh.predict(X)
+
+    train_error = mean_squared_error(
+        Y,
+        Y_train_du_doan
+    )
+
+    train_errors.append(train_error)
+
+
+    # -------------------------
+    # CROSS VALIDATION
+    # -------------------------
+
+    diem_cv = cross_val_score(
+        mo_hinh,
+        X,
+        Y,
+        cv=cv,
+        scoring="neg_mean_squared_error"
+    )
+
+    cv_error = -diem_cv.mean()
+
+    cv_errors.append(cv_error)
+
+
+# ==========================================
+# 5. TÌM BẬC TỐT NHẤT
+# ==========================================
+
+vi_tri = numpy.argmin(cv_errors)
+
+bac_tot_nhat = list(degrees)[vi_tri]
+
+
+# ==========================================
+# 6. IN KẾT QUẢ
+# ==========================================
+
+print("===== KẾT QUẢ =====")
+
+for i in range(len(degrees)):
+
+    print(
+        "Bậc", degrees[i],
+        "| Train Error =", train_errors[i],
+        "| CV Error =", cv_errors[i]
+    )
+
+print("\nBậc được chọn bằng K-fold CV:", bac_tot_nhat)
+
+
+# ==========================================
+# 7. VẼ ĐỒ THỊ
+# ==========================================
+
+plt.figure(figsize=(10, 6))
+
+
+# Train Error
+plt.plot(
+    list(degrees),
+    train_errors,
+    marker="o",
+    linewidth=2,
+    label="Train error"
+)
+
+
+# Validation Error
+plt.plot(
+    list(degrees),
+    cv_errors,
+    marker="o",
+    linewidth=2,
+    label="Validation error (K-fold CV)"
+)
+
+
+# Đánh dấu bậc được CV chọn
+plt.axvline(
+    bac_tot_nhat,
+    linestyle="--",
+    linewidth=2,
+    label=f"Bậc được CV chọn = {bac_tot_nhat}"
+)
+
+
+# ==========================================
+# 8. GHI UNDERFITTING / OVERFITTING
+# ==========================================
+
+y_max = max(cv_errors)
+
+plt.text(
+    1.05,
+    y_max * 0.85,
+    "UNDERFITTING",
+    fontsize=13
+)
+
+plt.text(
+    3.2,
+    y_max * 0.85,
+    "OVERFITTING",
+    fontsize=13
+)
+
+
+# ==========================================
+# 9. TIÊU ĐỀ VÀ TRỤC
+# ==========================================
+
+plt.xlabel("Degree")
+plt.ylabel("Mean Squared Error")
+
+plt.title(
+    "Phát hiện Overfitting bằng K-fold Cross Validation"
+)
+
+plt.xticks(list(degrees))
+
+plt.legend()
+
+plt.grid(True)
+
+
+# ==========================================
+# 10. LƯU ĐỒ THỊ
+# ==========================================
+
+plt.savefig(
+    "do_thi_overfitting.png",
+    dpi=300,
+    bbox_inches="tight"
+)
+
+plt.close()
+
+print("\nĐã tạo file: do_thi_overfitting.png")
